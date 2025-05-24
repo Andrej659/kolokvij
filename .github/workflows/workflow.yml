@@ -1,4 +1,4 @@
-name: cicd-kolokvij
+name: cicd-demo
 on:
   push:
     branches:
@@ -65,21 +65,21 @@ jobs:
        run: |
            docker push fra.ocir.io/friphibfcluj/kolokvijrepo/kolrepo:latest
   deploy-job:
-      needs: build-job
-      runs-on: ubuntu-latest
-      steps:
-        - name: "Start deploy job"
-          run: |
-            echo "Starting the deploy job."
-        - name: Checkout
-          uses: actions/checkout@v4
-        
-        - name: Configure Kubectl
-          uses: oracle-actions/configure-kubectl-oke@v1.5.0
-          id: kubectl-oke-action
-          with:
-            cluster: ${{ secrets.OKE_CLUSTER_OCID }}
-        - name: Run Kubectl get nodes
-          run: kubectl get nodes -A
-        - name: Run Kubectl
-          run: kubectl apply -f hellowrld.yaml
+      needs: build-job
+      runs-on: ubuntu-latest
+      steps:
+        - name: "Start deploy job"
+          run: |
+            echo "Starting the deploy job."
+        - name: Checkout
+          uses: actions/checkout@v4
+          
+        - name: Configure Kubectl
+          uses: oracle-actions/configure-kubectl-oke@v1.5.0
+          id: kubectl-oke-action
+          with:
+            cluster: ${{ secrets.OKE_CLUSTER_OCID }}
+        - name: Run Kubectl get nodes
+          run: kubectl get nodes -A
+        - name: Run Kubectl
+          run: kubectl apply -f hellowrld.yaml
