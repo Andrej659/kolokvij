@@ -1,0 +1,85 @@
+name: cicd-kolokvij
+on:
+  push:
+    branches:
+     - '*'
+
+env:
+    OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+    OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+    OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+    OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+    OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+
+jobs:
+  build-job:
+    name: Build Job
+    runs-on: ubuntu-latest
+
+    steps:
+     - name: "Start build job"
+       run: |
+         echo "Starting the build job."
+     - name: Checkout
+       uses: actions/checkout@v4
+     - name: Get or create an OCIR Repository
+       uses: oracle-actions/get-ocir-repository@v1.2.1
+       id: get-ocir-repository
+       with:
+         name: "kolokvijrepo/kolrepo"
+         compartment: ${{ secrets.OCI_COMPARTMENT_OCID }}
+     - name: Log into OCIR
+       uses: oracle-actions/login-ocir@v1.2.1
+       id: login-ocir
+       with:
+         auth_token: ${{ secrets.OCI_AUTH_TOKEN }}
+     - name: "Setup Java"
+       uses: actions/setup-java@v4
+       with:
+          distribution: oracle
+          java-version: 17
+     - name: 'Check Java Version'
+       run: |
+          java --version
+     - name: 'Assemble JAR'
+       run: |
+           mvn package
+     - name: 'Get Version Number'
+       run: |
+           echo "VERSION=$(mvn --version | grep "Apache Maven" | awk '{print $3}')" >> $GITHUB_ENV
+     - name: 'Test'
+       run: |
+           echo $GITHUB_ENV
+           echo ${{env.VERSION}}
+     - name: 'Publish JAR'
+       uses: actions/upload-artifact@v4.3.3
+       with:
+           name: 'cicd-demo-${{env.VERSION}}-SNAPSHOT.jar'
+           path: target/*-SNAPSHOT.jar
+     - name: docker build
+       id: docker-build
+       run: |
+           docker build -t fra.ocir.io/friphibfcluj/kolokvijrepo/kolrepo .
+     - name: docker push
+       id: docker-push
+       run: |
+           docker push fra.ocir.io/friphibfcluj/kolokvijrepo/kolrepo:latest
+  deploy-job:
+      needs: build-job
+      runs-on: ubuntu-latest
+      steps:
+        - name: "Start deploy job"
+          run: |
+            echo "Starting the deploy job."
+        - name: Checkout
+          uses: actions/checkout@v4
+        
+        - name: Configure Kubectl
+          uses: oracle-actions/configure-kubectl-oke@v1.5.0
+          id: kubectl-oke-action
+          with:
+            cluster: ${{ secrets.OKE_CLUSTER_OCID }}
+        - name: Run Kubectl get nodes
+          run: kubectl get nodes -A
+        - name: Run Kubectl
+          run: kubectl apply -f hellowrld.yaml
